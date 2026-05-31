@@ -1,0 +1,21 @@
+# Local stack that mirrors the production shape (API + MySQL).
+# Run:  docker compose up --build
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: cloud_pos
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: mysql+pymysql://root@db:3306/cloud_pos
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db

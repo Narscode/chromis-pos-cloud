@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Cloud POS System - one-shot AWS stack. Provisions an Amazon RDS MySQL
+  database and an EC2 instance that runs the FastAPI backend. Designed to
+  fit inside the AWS Free Tier (t3.micro / db.t3.micro).
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair for SSH access.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Master password for the RDS MySQL instance.
+  RepoUrl:
+    Type: String
+    Default: https://github.com/taibaik/cloud-pos-system.git
+    Description: Git repository the EC2 instance clones on boot.
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTTP + SSH for the Cloud POS API instance
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: MySQL access from the app instance only
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      Engine: mysql
+      EngineVersion: "8.0"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: "20"
+      DBName: cloud_pos
+      MasterUsername: admin
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 0
+
+  AppInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: Database
+    Properties:
+      InstanceType: t3.micro
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !GetAtt AppSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: cloud-pos-api
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf update -y
+          dnf install -y python3.12 python3.12-pip git mariadb105
+
+          cd /opt
+          git clone ${RepoUrl} cloud-pos
+          cd cloud-pos
+          python3.12 -m pip install -r requirements.txt
+
+          export DB_HOST="${Database.Endpoint.Address}"
+          export DATABASE_URL="mysql+pymysql://admin:${DBPassword}@${!DB_HOST}:3306/cloud_pos"
+
+          # Initialise schema + seed data (idempotent on a fresh DB).
+          mysql -h "${!DB_HOST}" -u admin -p"${DBPassword}" < scripts/schema.sql || true
+
+          # Run the API as a systemd service.
+          cat > /etc/systemd/system/cloud-pos.service <<UNIT
+          [Unit]
+          Description=Cloud POS API
+          After=network.target
+          [Service]
+          WorkingDirectory=/opt/cloud-pos
+          Environment=DATABASE_URL=mysql+pymysql://admin:${DBPassword}@${!DB_HOST}:3306/cloud_pos
+          ExecStart=/usr/bin/python3.12 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+          Restart=always
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          systemctl daemon-reload
+          systemctl enable --now cloud-pos
+
+Outputs:
+  ApiUrl:
+    Description: Public URL of the Cloud POS API
+    Value: !Sub "http://${AppInstance.PublicDnsName}:8000"
+  SwaggerUrl:
+    Description: Swagger / OpenAPI documentation
+    Value: !Sub "http://${AppInstance.PublicDnsName}:8000/docs"
+  RdsEndpoint:
+    Description: Amazon RDS MySQL endpoint
+    Value: !GetAtt Database.Endpoint.Address
