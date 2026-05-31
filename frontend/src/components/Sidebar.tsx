@@ -6,24 +6,44 @@ import {
   Users, 
   Warehouse, 
   GitBranch, 
-  TrendingUp 
+  TrendingUp,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  role: string;
+  userName: string;
+  onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  role, 
+  userName, 
+  onLogout 
+}) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'pos', label: 'POS Terminal', icon: ShoppingBag },
-    { id: 'products', label: 'Products', icon: Coffee },
-    { id: 'customers', label: 'Customers', icon: Users },
-    { id: 'inventory', label: 'Inventory Logs', icon: Warehouse },
-    { id: 'branches', label: 'Branches', icon: GitBranch },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['role_admin', 'role_manager', 'role_cashier'] },
+    { id: 'pos', label: 'POS Terminal', icon: ShoppingBag, roles: ['role_admin', 'role_manager', 'role_cashier'] },
+    { id: 'products', label: 'Products', icon: Coffee, roles: ['role_admin', 'role_manager'] },
+    { id: 'customers', label: 'Customers', icon: Users, roles: ['role_admin', 'role_manager', 'role_cashier'] },
+    { id: 'inventory', label: 'Inventory Logs', icon: Warehouse, roles: ['role_admin', 'role_manager'] },
+    { id: 'branches', label: 'Branches', icon: GitBranch, roles: ['role_admin'] },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp, roles: ['role_admin', 'role_manager'] },
   ];
+
+  // Filter menu items matching the user's role
+  const authorizedItems = menuItems.filter(item => item.roles.includes(role));
+
+  const getRoleLabel = (r: string) => {
+    if (r === 'role_admin') return 'System Admin';
+    if (r === 'role_manager') return 'Store Manager';
+    return 'Sales Cashier';
+  };
 
   return (
     <aside style={{
@@ -74,8 +94,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
+        overflowY: 'auto',
       }}>
-        {menuItems.map((item) => {
+        {authorizedItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (
@@ -121,28 +142,58 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         })}
       </nav>
 
-      {/* Footer Info */}
+      {/* Staff Profile and Logout Button */}
       <div style={{
-        padding: '20px',
+        padding: '15px',
+        background: 'rgba(15, 23, 42, 0.4)',
         borderTop: '1px solid var(--card-border)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: '12px',
       }}>
-        <div style={{
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)',
-          fontWeight: 500,
-        }}>
-          Cloud Course Project
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '50%',
+            background: 'var(--primary-glow)',
+            border: '1px solid var(--primary)',
+            color: 'var(--primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <UserCheck size={16} />
+          </div>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+              {userName}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {getRoleLabel(role)}
+            </div>
+          </div>
         </div>
-        <div style={{
-          fontSize: '0.8rem',
-          fontWeight: 700,
-          color: '#e2e8f0',
-        }}>
-          Universitas Gadjah Mada
-        </div>
+
+        <button
+          onClick={onLogout}
+          className="btn btn-secondary btn-sm"
+          style={{ width: '100%', justifyContent: 'center', gap: '6px', padding: '6px', fontSize: '0.8rem' }}
+        >
+          <LogOut size={12} />
+          <span>Sign Out</span>
+        </button>
+      </div>
+
+      {/* Footer Info */}
+      <div style={{
+        padding: '12px 20px',
+        fontSize: '0.7rem',
+        color: 'var(--text-muted)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.03)',
+        textAlign: 'center',
+      }}>
+        UGM Cloud Computing 2026
       </div>
     </aside>
   );

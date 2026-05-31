@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from './services/api';
 import { Product, Customer, Branch, InventoryLog, DashboardStats } from './types';
 import { Sidebar } from './components/Sidebar';
+import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Transactions } from './pages/Transactions';
 import { Products } from './pages/Products';
@@ -12,6 +13,16 @@ import { Analytics } from './pages/Analytics';
 import { Wifi, WifiOff, RefreshCw, GitBranch } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // Session authentication state (reads persistent local storage)
+  const [user, setUser] = useState<{ id: string; name: string; role: string; branch_id: string; token: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [currentBranchId, setCurrentBranchId] = useState<string>('branch_1');
@@ -28,7 +39,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAllData = async () => {
-    if (!isOnline) return; // Freeze loading if offline
+    if (!user || !isOnline) return; // Freeze loading if unauthenticated or offline
     
     setLoading(true);
     setError(null);
@@ -54,21 +65,62 @@ export const App: React.FC = () => {
     }
   };
 
-  // Trigger loading on startup and when connection status toggles back online
+  // Sync state trigger
   useEffect(() => {
-    fetchAllData();
-  }, [isOnline]);
+    if (user) {
+      setCurrentBranchId(user.branch_id);
+      fetchAllData();
+    }
+  }, [user, isOnline]);
 
   const toggleConnection = () => {
     setIsOnline(prev => !prev);
     if (!isOnline) {
-      // Pulling central changes when returning online
       console.log('Central sync initiated on network return.');
     }
   };
 
+  const handleLoginSuccess = (authenticatedUser: typeof user) => {
+    setUser(authenticatedUser);
+    if (authenticatedUser) {
+      localStorage.setItem('user', JSON.stringify(authenticatedUser));
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+    setActiveTab('dashboard');
+  };
+
+  // Enforce role-based view redirects
+  const isAuthorized = (tab: string): boolean => {
+    if (!user) return false;
+    const role = user.role;
+    
+    const rules: Record<string, string[]> = {
+      dashboard: ['role_admin', 'role_manager', 'role_cashier'],
+      pos: ['role_admin', 'role_manager', 'role_cashier'],
+      products: ['role_admin', 'role_manager'],
+      customers: ['role_admin', 'role_manager', 'role_cashier'],
+      inventory: ['role_admin', 'role_manager'],
+      branches: ['role_admin'],
+      analytics: ['role_admin', 'role_manager'],
+    };
+
+    return rules[tab]?.includes(role) || false;
+  };
+
+  // Render gate if unauthenticated
+  if (!user) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Auto-redirect unauthorized users to dashboard tab
+  const resolvedTab = isAuthorized(activeTab) ? activeTab : 'dashboard';
+
   const getHeaderSubtitle = () => {
-    switch (activeTab) {
+    switch (resolvedTab) {
       case 'dashboard': return 'Smart Retail cloud dashboard insights';
       case 'pos': return 'Interactive Point of Sale transaction terminal';
       case 'products': return 'Inventory products list and price administration';
@@ -81,7 +133,7 @@ export const App: React.FC = () => {
   };
 
   const renderActivePage = () => {
-    switch (activeTab) {
+    switch (resolvedTab) {
       case 'dashboard':
         return (
           <Dashboard
@@ -142,14 +194,20 @@ export const App: React.FC = () => {
           />
         );
       default:
-        return <div className="glass-card">Section in active development</div>;
+        return <Dashboard stats={dashboardStats} loading={loading} error={error} refreshStats={fetchAllData} isOnline={isOnline} currentBranchId={currentBranchId} />;
     }
   };
 
   return (
     <div className="app-container">
-      {/* Sidebar Navigation */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Sidebar Navigation with RBAC */}
+      <Sidebar 
+        activeTab={resolvedTab} 
+        setActiveTab={setActiveTab} 
+        role={user.role} 
+        userName={user.name} 
+        onLogout={handleLogout} 
+      />
 
       {/* Main Core View Area */}
       <main className="main-content">
@@ -158,7 +216,7 @@ export const App: React.FC = () => {
         <header className="app-header">
           <div className="header-title">
             <h1 style={{ textTransform: 'capitalize' }}>
-              {activeTab === 'pos' ? 'POS Checkout Terminal' : activeTab}
+              {resolvedTab === 'pos' ? 'POS Checkout Terminal' : resolvedTab}
             </h1>
             <p>{getHeaderSubtitle()}</p>
           </div>

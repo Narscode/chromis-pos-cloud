@@ -433,3 +433,14 @@ def compute_dashboard_stats(db: Session):
         "recent_transactions": recent_transactions,
     }
 
+
+# ---------------- User Authentication ----------------
+
+def authenticate_user(db: Session, username: str, pass_: str):
+    row = db.execute(
+        text("SELECT * FROM people WHERE id = :username AND pass = :pass AND visible = 1"),
+        {"username": username, "pass": pass_},
+    ).mappings().first()
+    return dict(row) if row else None
+
+

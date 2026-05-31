@@ -110,4 +110,11 @@ export const api = {
     create: (tx: Omit<import('../types').Transaction, 'id' | 'transaction_number' | 'timestamp'> & { items: Omit<import('../types').TransactionItem, 'id' | 'transaction_id'>[] }) => 
       apiRequest<import('../types').Transaction>('/transactions', { method: 'POST', body: JSON.stringify(tx) }),
   },
+
+  // Authentication
+  login: (username: string, password: string) => 
+    apiRequest<{ id: string; name: string; role: string; branch_id: string; token: string }>('/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
 };

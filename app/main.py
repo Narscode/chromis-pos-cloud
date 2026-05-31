@@ -194,6 +194,36 @@ def create_transaction(payload: schemas.TransactionCreate, db: Session = Depends
     return crud.create_transaction(db, payload)
 
 
+# ---------------- User Authentication & JWT Gateway ----------------
+
+@app.post("/login", response_model=schemas.UserResponse)
+def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, payload.username, payload.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Generate secure JWT payload signed with HS256 algorithm
+    import jwt
+    import datetime
+    token = jwt.encode(
+        {
+            "sub": user["id"], 
+            "role": user["role"],
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        },
+        "cloud_pos_super_secret_key_2026",
+        algorithm="HS256"
+    )
+    
+    return {
+        "id": user["id"],
+        "name": user["name"],
+        "role": user["role"],
+        "branch_id": user["branch_id"],
+        "token": token
+      }
+
+
 # ---------------- Dashboard & Analytics Stats ----------------
 
 @app.get("/dashboard/stats", response_model=schemas.DashboardStats)

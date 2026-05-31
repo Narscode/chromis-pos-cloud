@@ -189,3 +189,19 @@ class DashboardStats(BaseModel):
     forecast: list[ForecastPoint]
     recent_transactions: list[Transaction]
 
+
+# ---------- User Authentication ----------
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    name: str
+    role: str
+    branch_id: str
+    token: str
+
+

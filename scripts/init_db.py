@@ -100,10 +100,28 @@ if is_sqlite:
     )
     """)
 
+    # 7. People (User Accounts) Table
+    queries.append("""
+    CREATE TABLE IF NOT EXISTS people (
+        id          VARCHAR(50) PRIMARY KEY,
+        name        VARCHAR(255) NOT NULL,
+        role        VARCHAR(50)  NOT NULL,
+        pass        VARCHAR(255) NOT NULL,
+        visible     TINYINT(1)   NOT NULL DEFAULT 1,
+        branch_id   VARCHAR(50)  NOT NULL DEFAULT 'branch_1',
+        sync_status VARCHAR(20)  NOT NULL DEFAULT 'SYNCED'
+    )
+    """)
+
     # SQLite Seeding
     queries.append("INSERT OR IGNORE INTO branches (id, name, location, sync_status) VALUES ('branch_1', 'Downtown Headquarters', 'Malioboro St, Yogyakarta', 'SYNCED')")
     queries.append("INSERT OR IGNORE INTO branches (id, name, location, sync_status) VALUES ('branch_2', 'Uptown Premium Store', 'Sleman City Mall, Yogyakarta', 'SYNCED')")
     queries.append("INSERT OR IGNORE INTO branches (id, name, location, sync_status) VALUES ('branch_3', 'East Coast Mall Terminal', 'Gedongkuning, Yogyakarta', 'SYNCED')")
+
+    # Insert people / staff
+    queries.append("INSERT OR IGNORE INTO people (id, name, role, pass, visible, branch_id) VALUES ('admin', 'Admin User', 'role_admin', '1234', 1, 'branch_1')")
+    queries.append("INSERT OR IGNORE INTO people (id, name, role, pass, visible, branch_id) VALUES ('cashier', 'Cashier One', 'role_cashier', '1234', 1, 'branch_1')")
+    queries.append("INSERT OR IGNORE INTO people (id, name, role, pass, visible, branch_id) VALUES ('manager', 'Store Manager', 'role_manager', '1234', 1, 'branch_1')")
 
     # Insert products
     queries.append("INSERT OR IGNORE INTO products (id, name, price, stock, branch_id, sync_status) VALUES (1, 'Espresso Gold', 25000.00, 48, 'branch_1', 'SYNCED')")
