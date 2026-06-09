@@ -5,6 +5,7 @@ MySQL, deployable to AWS (EC2 + Amazon RDS) with infrastructure-as-code.
 
 ## BackEnd Documentation
 http://127.0.0.1:8000/docs
+http://54.252.191.92:8000/docs#/default/
 
 ## Structure
 
