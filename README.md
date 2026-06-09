@@ -3,6 +3,9 @@
 On-premise POS transformed into a cloud-based platform. FastAPI backend +
 MySQL, deployable to AWS (EC2 + Amazon RDS) with infrastructure-as-code.
 
+## BackEnd Documentation
+http://127.0.0.1:8000/docs
+
 ## Structure
 
 ```
